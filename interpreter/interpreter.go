@@ -21,45 +21,270 @@ type PietInterpreter struct {
     Csize int
 }
 
+type Codel struct {
+    x int
+    y int
+}
+
+type Shape struct {
+    codels [] Codel
+}
+
+func (shape *Shape) Size() int {
+    return len(shape.codels)
+}
+
+func (shape *Shape) Contains(codel Codel) bool {
+    // this is dumb, make it faster later
+    for i := 0; i < len(shape.codels); i++ {
+        if shape.codels[i] == codel {
+            return true
+        }
+    }
+    return false
+}
+
+func (shape *Shape) Append(codel Codel) {
+    if shape.Contains(codel) {
+        return
+    }
+    shape.codels = append(shape.codels, codel)
+}
+
+func (shape *Shape) FindEdge(direction byte, cc byte) Codel {
+    // find edge in dp direction
+    cur_edge := shape.codels[0]
+//    fmt.Printf("starting at %d, %d\n", cur_edge.x, cur_edge.y)
+    for i := 1; i < len(shape.codels); i++ {
+        switch direction {
+        case UP:
+            if cur_edge.y > shape.codels[i].y {
+                cur_edge = shape.codels[i]
+//                fmt.Printf("  found %d, %d\n", cur_edge.x, cur_edge.y)
+            }         
+        case DOWN:
+            if cur_edge.y < shape.codels[i].y {
+                cur_edge = shape.codels[i]
+//                fmt.Printf("  found %d, %d\n", cur_edge.x, cur_edge.y)
+            }         
+        case RIGHT:
+            if cur_edge.x < shape.codels[i].x {
+                cur_edge = shape.codels[i]
+//                fmt.Printf("  found %d, %d\n", cur_edge.x, cur_edge.y)
+            }         
+        case LEFT:
+            if cur_edge.x > shape.codels[i].x {
+                cur_edge = shape.codels[i]
+//                fmt.Printf("  found %d, %d\n", cur_edge.x, cur_edge.y)
+            }         
+        }
+    }
+
+    switch direction {
+    case UP:
+        for i := 0; i < len(shape.codels); i++ {
+            if shape.codels[i].y == cur_edge.y{
+               if cc == LEFT {
+                    if cur_edge.x > shape.codels[i].x {
+                        cur_edge = shape.codels[i]
+                    }
+               } else {
+                   if cur_edge.x < shape.codels[i].x {
+                       cur_edge = shape.codels[i]
+                   }
+               }
+            }
+        }
+    case DOWN:
+        for i := 0; i < len(shape.codels); i++ {
+            if shape.codels[i].y == cur_edge.y {
+               if cc == RIGHT {
+                    if cur_edge.x > shape.codels[i].x {
+                        cur_edge = shape.codels[i]
+                    }
+               } else {
+                   if cur_edge.x < shape.codels[i].x {
+                       cur_edge = shape.codels[i]
+                   }
+               }
+            }
+        }
+ 
+    case LEFT:
+        for i := 0; i < len(shape.codels); i++ {
+            if shape.codels[i].x == cur_edge.x {
+               if cc == RIGHT {
+                    if cur_edge.y > shape.codels[i].y {
+                        cur_edge = shape.codels[i]
+                    }
+               } else {
+                   if cur_edge.y < shape.codels[i].y {
+                       cur_edge = shape.codels[i]
+                   }
+               }
+            }
+        }
+ 
+    case RIGHT:
+//        fmt.Printf("cc: starting at %d, %d\n", cur_edge.x, cur_edge.y)
+        for i := 0; i < len(shape.codels); i++ {
+            if shape.codels[i].x == cur_edge.x {
+//               fmt.Printf("    comparing to %d, %d\n", shape.codels[i].x, shape.codels[i].y)
+               if cc == LEFT {
+                    if cur_edge.y > shape.codels[i].y {
+                        cur_edge = shape.codels[i]
+//                        fmt.Printf("    chose %d, %d\n", cur_edge.x, cur_edge.y)
+                    }
+               } else {
+                   if cur_edge.y < shape.codels[i].y {
+                       cur_edge = shape.codels[i]
+//                       fmt.Printf("    chose %d, %d\n", cur_edge.x, cur_edge.y)
+                   }
+               }
+            }
+        }
+    }
+    return cur_edge
+}
+
+
+func find_shape(x int, y int, pi *PietInterpreter, image image.Image, color color.Color, shape *Shape, seen map[int]bool) {
+    pos := y * image.Bounds().Max.X + x
+    if seen[pos] {
+        return
+    }
+    if !in_bounds(x, y, pi.Csize, image) {
+        seen[pos] = true     
+        return
+    }
+    cur_color := colourOfCodel(x, y, pi, image)
+    if color == cur_color {
+        shape.Append(Codel{x: x, y: y})
+        seen[pos] = true
+        find_shape(x - 1, y, pi, image, color, shape, seen)
+        find_shape(x + 1, y, pi, image, color, shape, seen)
+        find_shape(x, y - 1, pi, image, color, shape, seen)
+        find_shape(x, y + 1, pi, image, color, shape, seen)
+    }
+    return
+}
+
+func find_next_move(shape *Shape, direction byte, cc byte) (int, int) {
+    var edge Codel
+    if shape.Size() == 1 {
+        edge = shape.codels[0]
+    } else {
+        edge = shape.FindEdge(direction, cc)
+    }
+
+    switch direction {
+    case UP:
+        return edge.x, edge.y - 1
+    case DOWN:
+        return edge.x, edge.y + 1
+    case LEFT:
+        return edge.x - 1, edge.y
+    case RIGHT:
+        return edge.x + 1, edge.y
+    }
+    return 0, 0
+}
+
 func (pi *PietInterpreter) Execute(image image.Image) {
     pi.init()
 
     max_attempts := 8
 
-    attempts := max_attempts
-    for attempts > 0 {
-        // store current position
-        // find the edge in the direction of dp
-        // find the exit point based on cc
-        // can we move? if not that's an attempt
-        // toggle cc
-        // can we move? if not that's an attempt
-        // toggle db
-        // loop
+    running := true
+    for running {
 
-        if pi.attempt_move() {
-            pi.
+        // store current position/shape
+        shape := Shape{} 
+        seen := map[int]bool{}
+        col_cur := colourOfCodel(pi.x, pi.y, pi, image)
+        find_shape(pi.x, pi.y, pi, image, col_cur, &shape, seen)
+
+        attempts := max_attempts
+        valid_move := false
+        for !valid_move && attempts > 0 {
+
+            x, y := find_next_move(&shape, pi.dp, pi.cc)
+            if in_bounds(x, y, pi.Csize, image) && !is_black(x, y, pi.Csize, image) {
+                col_next := image.At(x * pi.Csize, y * pi.Csize)
+
+                cmd := pi.diff(col_cur, col_next)
+
+//                fmt.Printf("dp: %d, cc: %d :: (%d, %d) -> (%d, %d) ", pi.dp, pi.cc, pi.x, pi.y, x, y)
+                pi.cmd(cmd, int64(shape.Size()))
+                pi.x = x
+                pi.y = y
+
+                /*
+                fmt.Printf(" | %s ", cmd_name(cmd))
+                elem := pi.stack.data.Back()
+                for elem != nil {
+                    fmt.Printf(" %d", elem.Value.(int64))
+                    elem = elem.Prev()
+                }
+                fmt.Println()
+                */
+
+                valid_move = true
+            } else {
+                attempts--
+//                fmt.Printf("Out of bounds - rotate cc: %d, %d. Attempts left %d\n", x, y, attempts)
+                if pi.cc == LEFT {
+                    pi.cc = RIGHT
+                } else {
+                    pi.cc = LEFT
+                }
+
+                x, y = find_next_move(&shape, pi.dp, pi.cc)
+                if in_bounds(x, y, pi.Csize, image) && !is_black(x, y, pi.Csize, image) {
+                    col_next := image.At(x * pi.Csize, y * pi.Csize)
+
+                    cmd := pi.diff(col_cur, col_next)
+
+
+ //                   fmt.Printf("dp: %d, cc: %d :: (%d, %d) -> (%d, %d) ", pi.dp, pi.cc, pi.x, pi.y, x, y)
+                    pi.cmd(cmd, int64(shape.Size()))
+                    pi.x = x
+                    pi.y = y
+
+
+                    /*
+                    fmt.Printf(" | %s ", cmd_name(cmd))
+                    elem := pi.stack.data.Back()
+                    for elem != nil {
+                        fmt.Printf(" %d", elem.Value.(int64))
+                        elem = elem.Prev()
+                    }
+                    fmt.Println()
+                    */
+
+                    valid_move = true
+                } else {
+                    attempts--
+//                    fmt.Printf("Out of bounds - rotate dp: %d, %d. Attempts left %d\n", x, y, attempts)
+                    switch pi.dp {
+                    case UP:
+                        pi.dp = RIGHT
+                    case RIGHT:
+                        pi.dp = DOWN
+                    case DOWN:
+                        pi.dp = LEFT
+                    case LEFT:
+                        pi.dp = UP
+                    }
+                }
+            }
         }
-
-        if pi.x == 6 && pi.y == 6 { fmt.Printf("%d Attempts left - Checking (%d, %d)\n", attempts, pi.dp, pi.cc)}
-        attempts--
-        if pi.move(image) {
-            attempts = max_attempts
-        } else if attempts > 0 {
-            if pi.cc == LEFT {
-                pi.cc = RIGHT
-            } else {
-                pi.cc = LEFT
-            }
-            if pi.x == 6 && pi.y == 6 { fmt.Printf("%d Attempts left - Checking (%d, %d)\n", attempts, pi.dp, pi.cc)}
-            attempts--
-            if pi.move(image) {
-                attempts = max_attempts
-            } else {
-                pi.dp = ((pi.dp + 1) % 4)
-            }
+        if attempts == 0 {
+//            fmt.Println("No more attempts left, exiting")
+            running = false
         }
     }
+    fmt.Println()
 }
 
 func (pi *PietInterpreter) init() {
@@ -67,6 +292,10 @@ func (pi *PietInterpreter) init() {
     pi.y = 0
     pi.dp = RIGHT
     pi.cc = LEFT
+}
+
+func colourOfCodel(x int, y int, pi *PietInterpreter, image image.Image) color.Color {
+    return image.At(x * pi.Csize, y * pi.Csize)
 }
 
 func (pi *PietInterpreter) move(image image.Image) bool {
