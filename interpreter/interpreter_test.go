@@ -7,25 +7,25 @@ import (
 
 func TestCommand(t *testing.T) {
 
-    pi := PietInterpreter{}
+    pi := NewInterpreter(32)
 
     cmd := pi.diff(l_red, n_red)
-    if cmd != 1 {
+    if cmd != Operand(1) {
         t.Errorf("Expected %d got %d", 2, cmd)
     }
 
     cmd = pi.diff(l_red, d_red)
-    if cmd != 2 {
+    if cmd != Operand(2) {
         t.Errorf("Expected %d got %d", 2, cmd)
     }
 
     cmd = pi.diff(l_red, d_red)
-    if cmd != 2 {
+    if cmd != Operand(2) {
         t.Errorf("Expected %d got %d", 2, cmd)
     }
 
     cmd = pi.diff(d_red, l_red)
-    if cmd != 1 {
+    if cmd != Operand(1) {
         t.Errorf("Expected %d got %d", 1, cmd)
     }
 
@@ -33,40 +33,40 @@ func TestCommand(t *testing.T) {
 
 
 func TestPushAndPop(t *testing.T) {
-    values := []int64 {1, 2, 3} 
+    values := []int32 {1, 2, 3} 
 
-    pi := PietInterpreter{}
+    pi := NewInterpreter(32)
 
-    pi.Pop()
+    pi.sm.exec(Pop)
 
     for _, val := range values {
-        pi.Push(val)
+        pi.sm.exec(Push, val)
     }
 
-    _, val := pi.Peek()
+    _, val := pi.sm.Peek()
     if val != values[len(values) - 1] {
         t.Errorf("Expected %d to be returned, got %d", values[len(values) - 1], val)
         return
     }
-    pi.Pop()
-    _, val = pi.Peek()
+    pi.sm.exec(Pop)
+    _, val = pi.sm.Peek()
     if val != values[len(values) - 2] {
         t.Errorf("Expected %d to be returned, got %d", values[len(values) - 2], val)
     }
 }
 
 func TestAdd(t *testing.T) {
-    first, second := int64(5), int64(10)
+    first, second := int32(5), int32(10)
     expected := first + second
 
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(second)
-    pi.Push(first)
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push, 649201337)
+    pi.sm.exec(Push, second)
+    pi.sm.exec(Push, first)
 
-    pi.Add()
+    pi.sm.exec(Add)
 
-    ok, result := pi.Peek() 
+    ok, result := pi.sm.Peek() 
     if !ok {
         t.Error("Unable to peek after add")
         return
@@ -77,17 +77,17 @@ func TestAdd(t *testing.T) {
 }
 
 func TestSub(t *testing.T) {
-    first, second := int64(7), int64(3)
+    first, second := int32(7), int32(3)
     expected := second - first
 
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(second)
-    pi.Push(first)
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push, 649201337)
+    pi.sm.exec(Push,second)
+    pi.sm.exec(Push,first)
 
-    pi.Sub()
+    pi.sm.exec(Sub)
 
-    ok, result := pi.Peek() 
+    ok, result := pi.sm.Peek() 
     if !ok {
         t.Error("Unable to peek after sub")
         return
@@ -98,17 +98,17 @@ func TestSub(t *testing.T) {
 }
 
 func TestMult(t *testing.T) {
-    first, second := int64(7), int64(3)
+    first, second := int32(7), int32(3)
     expected := second * first
 
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(second)
-    pi.Push(first)
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push,649201337)
+    pi.sm.exec(Push,second)
+    pi.sm.exec(Push,first)
 
-    pi.Mult()
+    pi.sm.exec(Mult)
 
-    ok, result := pi.Peek() 
+    ok, result := pi.sm.Peek() 
     if !ok {
         t.Error("Unable to peek after add")
         return
@@ -121,17 +121,17 @@ func TestMult(t *testing.T) {
 
 
 func TestDiv(t *testing.T) {
-    first, second := int64(7), int64(3)
+    first, second := int32(7), int32(3)
     expected := second / first
 
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(second)
-    pi.Push(first)
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push,649201337)
+    pi.sm.exec(Push,second)
+    pi.sm.exec(Push,first)
 
-    pi.Div()
+    pi.sm.exec(Div)
 
-    ok, result := pi.Peek() 
+    ok, result := pi.sm.Peek() 
     if !ok {
         t.Error("Unable to peek after divide")
         return
@@ -144,17 +144,17 @@ func TestDiv(t *testing.T) {
 
 
 func TestMod(t *testing.T) {
-    first, second := int64(7), int64(3)
+    first, second := int32(7), int32(3)
     expected := second % first
 
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(second)
-    pi.Push(first)
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push,649201337)
+    pi.sm.exec(Push,second)
+    pi.sm.exec(Push,first)
 
-    pi.Mod()
+    pi.sm.exec(Mod)
 
-    ok, result := pi.Peek() 
+    ok, result := pi.sm.Peek() 
     if !ok {
         t.Error("Unable to peek after add")
         return
@@ -165,35 +165,35 @@ func TestMod(t *testing.T) {
 }
 
 func TestNot(t *testing.T) {
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(0)
-    pi.Not()
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push,649201337)
+    pi.sm.exec(Push,0)
+    pi.sm.exec(Not)
 
-    expected := int64(1)
-    _, result := pi.Peek()
+    expected := int32(1)
+    _, result := pi.sm.Peek()
     if result != expected {
         t.Errorf("Not was not executed correctly. Expected %d but got %d", expected, result)
     }
     
-    pi.Push(1)
-    pi.Not()
+    pi.sm.exec(Push,1)
+    pi.sm.exec(Not)
 
-    expected = int64(0)
-    _, result = pi.Peek()
+    expected = int32(0)
+    _, result = pi.sm.Peek()
     if result != expected {
         t.Errorf("Not was not executed correctly. Expected %d but got %d", expected, result)
     }
 }
 
 func TestGreater_True(t *testing.T) {
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(0)
-    pi.Greater()
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push,649201337)
+    pi.sm.exec(Push,0)
+    pi.sm.exec(Greater)
 
-    expected := int64(1)
-    _, result := pi.Peek()
+    expected := int32(1)
+    _, result := pi.sm.Peek()
     if result != expected {
         t.Errorf("Greater was not executed correctly. Expected %d but got %d", expected, result)
     }
@@ -201,21 +201,21 @@ func TestGreater_True(t *testing.T) {
 
 
 func TestGreater_False(t *testing.T) {
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(0)
-    pi.Greater()
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push,649201337)
+    pi.sm.exec(Push,0)
+    pi.sm.exec(Greater)
 
-    expected := int64(1)
-    _, result := pi.Peek()
+    expected := int32(1)
+    _, result := pi.sm.Peek()
     if result != expected {
         t.Errorf("Greater was not executed correctly. Expected %d but got %d", expected, result)
     }
 
-    pi.Push(2)
-    pi.Greater()
-    expected = int64(0)
-    _, result = pi.Peek()
+    pi.sm.exec(Push,2)
+    pi.sm.exec(Greater)
+    expected = int32(0)
+    _, result = pi.sm.Peek()
     if result != expected {
         t.Errorf("Greater was not executed correctly. Expected %d but got %d", expected, result)
     }
@@ -223,18 +223,18 @@ func TestGreater_False(t *testing.T) {
 }
 
 func TestDuplicate(t *testing.T) {
-    pi := PietInterpreter{}
-    pi.Push(649201337)
-    pi.Push(3)
-    pi.Dup()
+    pi := NewInterpreter(32)
+    pi.sm.exec(Push, 649201337)
+    pi.sm.exec(Push, 3)
+    pi.sm.exec(Dup)
 
-    expected := int64(3)
-    _, result := pi.Peek()
+    expected := int32(3)
+    _, result := pi.sm.Peek()
     if result != expected {
         t.Errorf("Duplicate was not performed correctly. Expected %d but got %d", expected, result)
     }
-    pi.Pop()
-    _, result = pi.Peek()
+    pi.sm.exec(Pop)
+    _, result = pi.sm.Peek()
     if result != expected {
         t.Errorf("Value was not duplicated. Expected %d but got %d", expected, result)
     }

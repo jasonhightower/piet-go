@@ -1,14 +1,14 @@
 package interpreter
 
 import (
-    "testing"
+	"testing"
 )
 
 func TestStackPushAndPop(t *testing.T) {
-    values := []int64 { 1, 2, 3}
+    values := []int32 { 3, 2, 1}
 
-    stack := Stack{}
-    
+    stack := NewStack(16)
+
     for _, val := range values {
         stack.Push(val)
     }
@@ -26,9 +26,32 @@ func TestStackPushAndPop(t *testing.T) {
     }
 }
 
+func TestRollStack(t *testing.T) {
+    values := [7]int32 {25, 13, 11, -7, 1, 2, 3}
+    expected := [7]int32 {25, 13, 1, 2, 3, 11, -7}
+    stack := NewStack(16)
+
+    for _, val := range values {
+        stack.Push(val)
+    }
+
+    stack.Roll(5, 3)
+
+    for i := len(values) - 1; i >= 0; i--{
+        if ok, val := stack.Pop(); !ok || val != expected[i] {
+            if !ok {
+                t.Errorf("stack.Pop failed unexpectedly")
+                return
+            } 
+            t.Errorf("Expected %d, Got %d", expected[i], val)
+            return
+        }
+    }
+}
+
 func TestEmptyStackPeek(t *testing.T) {
-    values := []int64 {1, 2, 3}
-    stack := Stack{}
+    values := []int32 {1, 2, 3}
+    stack := NewStack(16)
 
     for _, val := range values {
         stack.Push(val)
