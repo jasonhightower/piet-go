@@ -7,10 +7,134 @@ import (
 	"image/color"
 )
 
+type Operand byte
+
+const (
+    Push Operand = iota 
+    Pop 
+    And 
+    Sub 
+    Mult 
+    Div 
+    Mod 
+    Not 
+    Greater 
+    Pointer 
+    Switch 
+    Dup 
+    Roll 
+    NumIn 
+    CharIn 
+    NumOut 
+    CharOut
+)
+
+func (o Operand) String() string {
+    switch o {
+    case Push:
+        return "push"
+    case Pop:
+        return "pop"
+    case And:
+        return "and"
+    case Sub:
+        return "sub"
+    case Mult:
+        return "mult"
+    case Div:
+        return "div"
+    case Mod:
+        return "mod"
+    case Not:
+        return "not"
+    case Greater:
+        return "greater"
+    case Pointer:
+        return "pointer"
+    case Switch:
+        return "switch"
+    case Dup:
+        return "dup"
+    case Roll:
+        return "roll"
+    case NumIn:
+        return "numin"
+    case CharIn:
+        return "charin"
+    case NumOut:
+        return "numout"
+    case CharOut:
+        return "charout"
+    }
+    return "unknown"
+}
+
+type DpDir byte 
+
+const (
+    DpRight DpDir = iota
+    DpDown    
+    DpLeft
+    DpUp
+)
+
+func (d DpDir) String() string {
+    switch d {
+    case DpRight:
+        return "right"
+    case DpDown:
+        return "down"
+    case DpLeft:
+        return "left"
+    case DpUp:
+        return "up"
+    }
+    return "unknown"
+}
+
+func (d DpDir) Rotate() DpDir {
+    switch d {
+    case DpRight:
+        return DpDown
+    case DpDown:
+        return DpLeft
+    case DpLeft:
+        return DpUp
+    case DpUp:
+        return DpRight
+    }
+    panic(fmt.Sprintf("Unknown DpDir %d", d))
+}
+
+type CcDir byte
+
+const (
+    CcLeft CcDir = iota
+    CcRight 
+)
+
+func (c CcDir) String() string {
+    switch c {
+    case CcLeft:
+        return "left"
+    case CcRight:
+        return "right"
+    }
+    return "unknown"
+}
+
+func (c CcDir) Toggle() CcDir {
+    if c == CcLeft {
+        return CcRight
+    }
+    return CcLeft
+}
+
 const RIGHT byte = 0
 const DOWN byte = 1
 const LEFT byte = 2
 const UP byte = 3
+
 
 type PietInterpreter struct {
     stack Stack
