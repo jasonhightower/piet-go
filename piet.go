@@ -38,7 +38,7 @@ func main() {
 
     image := readPiet(*filename)
 
-    pi := interpreter.NewInterpreter(*capacity)
+    pi := interpreter.NewStackMachine(*capacity)
 
     if *codelsize > 1 {
         image = interpreter.NewCodelImage(*codelsize, image)

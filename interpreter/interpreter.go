@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-    log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // =============== Stack Machine =================
@@ -21,7 +21,6 @@ var dir_cc_lut = [4][2]image.Point{
     {{X:-1, Y:0}, {X:1, Y:0}}} // up
 
 type Operand byte
-
 const (
     Push Operand = iota + 1
     Pop 
@@ -46,6 +45,7 @@ type StackMachine struct {
     stack Stack
     dp DpDir
     cc CcDir
+    pos image.Point
 }
 
 func NewStackMachine(capacity int) StackMachine {
@@ -55,30 +55,11 @@ func NewStackMachine(capacity int) StackMachine {
         cc: CcLeft}
 }
 
-// TODO JH relocate
-func (s *Stack) Roll(depth int32, rolls int32) {
-    ip := s.Len() - int(depth)
-    i := ip
-    j := ip + (int(rolls) % int(depth))
-    tmpi := s.d[i]
-    var tmpj int32
-
-    for n :=0; n < int(depth);  {
-        tmpj = s.d[j]
-        s.d[j] = tmpi
-        i++
-        n++
-
-        if n == int(depth) {
-            return
-        }
-        tmpi = s.d[i]
-        s.d[i] = tmpj
-        j++
-        if j > int(s.head) {
-            j = ip
-        }
-        n++
+func (sm *StackMachine) ToggleCC() {
+    if sm.cc == CcLeft {
+        sm.cc = CcRight
+    } else {
+        sm.cc = CcLeft
     }
 }
 
@@ -290,33 +271,19 @@ func (c CcDir) String() string {
 }
 
 
-// TODO JH this should be a LUT
 func (c CcDir) Direction(dp DpDir) image.Point {
     return dir_cc_lut[dp][c]
 }
 
-// TODO JH relocate me
-func (sm *StackMachine) ToggleCC() {
-    if sm.cc == CcLeft {
-        sm.cc = CcRight
-    } else {
-        sm.cc = CcLeft
-    }
-}
-
-type PietInterpreter struct {
-    sm StackMachine
-    pos image.Point
-}
-
-func NewInterpreter(capacity int) *PietInterpreter {
-    return &PietInterpreter{
-        sm: NewStackMachine(capacity)}
-}
-
 type Shape struct {
     points []image.Point
+    connectors [][]image.Point
 }
+
+func NewShape(point image.Point) Shape {
+    return Shape{
+        points: []image.Point{point}}
+    }
 
 func (shape *Shape) Size() int32 {
     return int32(len(shape.points))
@@ -336,7 +303,22 @@ func (shape *Shape) Append(point image.Point) {
     if shape.Contains(point) {
         return
     }
+    // TODO JH this is where connectors need to be defined
     shape.points = append(shape.points, point)
+}
+
+func min(r int, s int) int {
+    if r < s {
+        return r
+    }
+    return s
+}
+
+func max(r int, s int) int {
+    if r > s {
+        return r
+    }
+    return s
 }
 
 // HIT
@@ -428,7 +410,7 @@ func (shape *Shape) FindEdge(direction DpDir, cc CcDir) image.Point {
 }
 
 // HIT
-func find_shape(x int, y int, pi *PietInterpreter, img image.Image, color color.Color, shape *Shape, seen map[int]bool) {
+func find_shape(x int, y int, pi *StackMachine, img image.Image, color color.Color, shape *Shape, seen map[int]bool) {
     pos := y * img.Bounds().Max.X + x
     if seen[pos] {
         return
@@ -471,10 +453,7 @@ func find_next_move(shape *Shape, direction DpDir, cc CcDir) (int, int) {
     return 0, 0
 }
 
-func (pi *PietInterpreter) Execute(image image.Image) {
-    // TODO JH should use a constructor instead of this
-    pi.init()
-
+func (pi *StackMachine) Execute(image image.Image) {
     max_attempts := 8
 
     running := true
@@ -490,31 +469,31 @@ func (pi *PietInterpreter) Execute(image image.Image) {
         valid_move := false
         for !valid_move && attempts > 0 {
 
-            x, y := find_next_move(&shape, pi.sm.dp, pi.sm.cc)
+            x, y := find_next_move(&shape, pi.dp, pi.cc)
 //            fmt.Printf("(%d, %d) -> (%d, %d) ", pi.pos.X, pi.pos.Y, x, y)
             if in_bounds(x, y, image) && !is_black(x, y, image) {
                 col_next := image.At(x , y)
                 operand := pi.diff(col_cur, col_next)
-                pi.sm.exec(operand, shape.Size())
+                pi.exec(operand, shape.Size())
                 pi.pos.X, pi.pos.Y = x, y
 
                 valid_move = true
             } else {
                 attempts--
-                pi.sm.ToggleCC()
+                pi.ToggleCC()
 
-                x, y = find_next_move(&shape, pi.sm.dp, pi.sm.cc)
+                x, y = find_next_move(&shape, pi.dp, pi.cc)
 //                fmt.Printf("(%d, %d) -> (%d, %d) ", pi.pos.X, pi.pos.Y, x, y)
                 if in_bounds(x, y, image) && !is_black(x, y, image) {
                     col_next := image.At(x, y)
                     operand := pi.diff(col_cur, col_next)
-                    pi.sm.exec(operand, shape.Size())
+                    pi.exec(operand, shape.Size())
                     pi.pos.X, pi.pos.Y = x, y
 
                     valid_move = true
                 } else {
                     attempts--
-                    pi.sm.RotateDp(1)
+                    pi.RotateDp(1)
                 }
             }
         }
@@ -525,20 +504,13 @@ func (pi *PietInterpreter) Execute(image image.Image) {
 //    fmt.Println("Done")
 }
 
-func (pi *PietInterpreter) init() {
-    pi.pos = image.Point{X:0, Y:0}
-    pi.sm.dp = DpRight
-    pi.sm.cc = CcLeft
-}
-
-// HIT
-func (pi *PietInterpreter) move(image image.Image) bool {
+func (pi *StackMachine) move(image image.Image) bool {
     // find edges
-    edge_x, edge_y := find_edge(pi.pos.X, pi.pos.Y, pi.sm.dp.Direction(), image)
-    edge_x, edge_y = find_edge(edge_x, edge_y, pi.sm.cc.Direction(pi.sm.dp), image)
+    edge_x, edge_y := find_edge(pi.pos.X, pi.pos.Y, pi.dp.Direction(), image)
+    edge_x, edge_y = find_edge(edge_x, edge_y, pi.cc.Direction(pi.dp), image)
 
     // attempt to move
-    dir := pi.sm.dp.Direction()
+    dir := pi.dp.Direction()
     edge_x += dir.X
     edge_y += dir.Y
 
@@ -548,7 +520,7 @@ func (pi *PietInterpreter) move(image image.Image) bool {
 
         operand := pi.diff(col_cur, col_next)
         // TODO JH need to adjust 1 here
-        pi.sm.exec(operand, 1)
+        pi.exec(operand, 1)
 
         pi.pos.X = edge_x
         pi.pos.Y = edge_y
@@ -583,12 +555,12 @@ func find_edge(x int, y int, direction image.Point, image image.Image) (int, int
     return cx, cy
 }
 
-func find_next_edge(pi *PietInterpreter, image image.Image, tries int) (bool, int, int, int, int) {
+func find_next_edge(pi *StackMachine, image image.Image, tries int) (bool, int, int, int, int) {
     x, y := pi.pos.X, pi.pos.Y
 
-    for can_move(x, y, pi.sm.dp, image.Bounds()) {
+    for can_move(x, y, pi.dp, image.Bounds()) {
         cur_col := image.At(x, y)
-        direction := pi.sm.dp.Direction()
+        direction := pi.dp.Direction()
         next_col := image.At(x, y)
         if next_col != cur_col {
             return true, direction.X, direction.Y, x, y
@@ -596,7 +568,7 @@ func find_next_edge(pi *PietInterpreter, image image.Image, tries int) (bool, in
     }
 
     if tries > 0 && x == pi.pos.X && y == pi.pos.Y {
-        pi.sm.dp = (pi.sm.dp + 1) % 4
+        pi.dp = (pi.dp + 1) % 4
         return find_next_edge(pi, image, tries - 1)
     }
     return false, -1, -1, -1, -1
@@ -607,7 +579,7 @@ func can_move(x int, y int, direction DpDir, bounds image.Rectangle) bool {
     return p.In(bounds)
 }
 
-func (pi *PietInterpreter) diff(cur color.Color, next color.Color) Operand {
+func (pi *StackMachine) diff(cur color.Color, next color.Color) Operand {
     h_steps := steps(Hue(cur), Hue(next), 6)
     l_steps := steps(Lightness(cur), Lightness(next), 3)
 
@@ -634,23 +606,49 @@ type Stack struct {
     head int32
 }
 
+
 func NewStack(capacity int) Stack {
     return Stack{
         d: make([]int32, capacity),
         head: -1}
 }
 
+func (s *Stack) Roll(depth int32, rolls int32) {
+    ip := s.Len() - int(depth)
+    i := ip
+    j := ip + (int(rolls) % int(depth))
+    tmpi := s.d[i]
+    var tmpj int32
+
+    for n :=0; n < int(depth);  {
+        tmpj = s.d[j]
+        s.d[j] = tmpi
+        i++
+        n++
+
+        if n == int(depth) {
+            return
+        }
+        tmpi = s.d[i]
+        s.d[i] = tmpj
+        j++
+        if j > int(s.head) {
+            j = ip
+        }
+        n++
+    }
+}
+
 func (stack *Stack) Len() int {
-    return stack.len
+    return int(stack.head) + 1
 }
 
 func (stack *Stack) Push(num int32) {
-    if stack.len + 1 >= len(stack.d) {
+    if int(stack.head) + 1 == len(stack.d) {
         panic(fmt.Sprintf("Stack overflow %d - %d", stack.len + 1, len(stack.d)))
     }
     stack.head += 1
     stack.d[stack.head] = num
-    stack.len += 1
 }
 
 func (stack *Stack) Pop() (bool, int32) {
@@ -660,7 +658,6 @@ func (stack *Stack) Pop() (bool, int32) {
     elem := stack.d[stack.head]
     stack.d[stack.head] = 0
     stack.head -= 1
-    stack.len -= 1
     return true, elem 
 }
 
