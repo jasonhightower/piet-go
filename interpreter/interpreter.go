@@ -39,6 +39,8 @@ const (
     CharIn 
     NumOut 
     CharOut
+    Break
+    Reset
 )
 
 type StackMachine struct {
@@ -46,21 +48,22 @@ type StackMachine struct {
     dp DpDir
     cc CcDir
     pos image.Point
+    rcount uint8
 }
 
-func NewStackMachine(capacity int) StackMachine {
-    return StackMachine{
+func NewStackMachine(capacity int) *StackMachine {
+    return &StackMachine{
         stack: NewStack(capacity),
         dp: DpRight,
         cc: CcLeft}
 }
 
+func (sm *StackMachine) Break() {
+    sm.rcount += 1
+}
+
 func (sm *StackMachine) ToggleCC() {
-    if sm.cc == CcLeft {
-        sm.cc = CcRight
-    } else {
-        sm.cc = CcLeft
-    }
+    sm.cc = sm.cc.Toggle()
 }
 
 type CodelImage struct {
@@ -167,7 +170,10 @@ func (sm *StackMachine) exec(op Operand, args ...int32) (bool, error) {
         ok, val := sm.stack.Pop()
         if ok {
             fmt.Print(string(val))
-        }
+        } 
+    case Reset:
+    case Break:
+        sm.Break()
     default:
         panic(fmt.Sprintf("Unknown instruction %v", op))
     }
@@ -247,10 +253,14 @@ func (d DpDir) String() string {
     return "unknown"
 }
 
+func (dp DpDir) Rotate(amount int32) DpDir {
+    return DpDir(abs(byte(int32(dp) + amount) % 4))
+}
+
 // TODO JH relocate me
 func (sm *StackMachine) RotateDp(amount int32) {
     // TODO JH clean this up
-    sm.dp = DpDir(abs(byte(int32(sm.dp) + amount) % 4))
+    sm.dp = sm.dp.Rotate(amount)
 }
 
 type CcDir byte
@@ -259,6 +269,13 @@ const (
     CcLeft CcDir = iota
     CcRight 
 )
+
+func (c CcDir) Toggle() CcDir {
+    if c == CcLeft {
+        return CcRight
+    }
+    return CcLeft
+}
 
 func (c CcDir) String() string {
     switch c {
@@ -277,7 +294,22 @@ func (c CcDir) Direction(dp DpDir) image.Point {
 
 type Shape struct {
     points []image.Point
-    connectors [][]image.Point
+    color Pcolor
+    connections [8]*Shape
+    ops []Operand
+}
+
+func (s Shape) Color() Pcolor {
+    return s.color
+}
+
+func (s Shape) Connection(dp DpDir, cc CcDir) *Shape {
+    return s.connections[byte(dp) * 2 + byte(cc)]
+}
+
+func (s Shape) NextOp(dp DpDir, cc CcDir) Operand {
+    idx := byte(dp) % 4 * 2 + byte(cc)
+    return s.ops[idx]
 }
 
 func NewShape(point image.Point) Shape {
@@ -473,7 +505,7 @@ func (pi *StackMachine) Execute(image image.Image) {
 //            fmt.Printf("(%d, %d) -> (%d, %d) ", pi.pos.X, pi.pos.Y, x, y)
             if in_bounds(x, y, image) && !is_black(x, y, image) {
                 col_next := image.At(x , y)
-                operand := pi.diff(col_cur, col_next)
+                operand := diff(col_cur, col_next)
                 pi.exec(operand, shape.Size())
                 pi.pos.X, pi.pos.Y = x, y
 
@@ -486,7 +518,7 @@ func (pi *StackMachine) Execute(image image.Image) {
 //                fmt.Printf("(%d, %d) -> (%d, %d) ", pi.pos.X, pi.pos.Y, x, y)
                 if in_bounds(x, y, image) && !is_black(x, y, image) {
                     col_next := image.At(x, y)
-                    operand := pi.diff(col_cur, col_next)
+                    operand := diff(col_cur, col_next)
                     pi.exec(operand, shape.Size())
                     pi.pos.X, pi.pos.Y = x, y
 
@@ -518,7 +550,7 @@ func (pi *StackMachine) move(image image.Image) bool {
         col_next := image.At(edge_x, edge_y)
         col_cur := image.At(pi.pos.X, pi.pos.Y)
 
-        operand := pi.diff(col_cur, col_next)
+        operand := diff(col_cur, col_next)
         // TODO JH need to adjust 1 here
         pi.exec(operand, 1)
 
@@ -579,7 +611,7 @@ func can_move(x int, y int, direction DpDir, bounds image.Rectangle) bool {
     return p.In(bounds)
 }
 
-func (pi *StackMachine) diff(cur color.Color, next color.Color) Operand {
+func diff(cur color.Color, next color.Color) Operand {
     h_steps := steps(Hue(cur), Hue(next), 6)
     l_steps := steps(Lightness(cur), Lightness(next), 3)
 
