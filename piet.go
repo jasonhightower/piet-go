@@ -4,10 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/gif"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
+	log "github.com/sirupsen/logrus"
 	"jasonhightower.com/piet/interpreter"
-    log "github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -15,18 +17,18 @@ func init() {
   //  log.SetFormatter(&log.JSONFormatter{})
 
   log.SetOutput(os.Stdout)
-
 }
 
-func readPiet(filename string) image.Image {
+func readImage(filename string) (image.Image, error) {
     file, err := os.Open(filename)
     if err != nil {
-        return nil
+        // FIXME proper error handling
+        return nil, err
     }
     defer file.Close()
 
-    image, err := gif.Decode(file)
-    return image
+    image, _, err := image.Decode(file)
+    return image, err
 }
 
 func main() {
@@ -36,14 +38,6 @@ func main() {
     mode := flag.String("m", "interpret", "Name of the mode to run")
     loglevel := flag.String("log", "info", "Log Level")
     flag.Parse()
-
-    image := readPiet(*filename)
-
-    pi := interpreter.NewStackMachine(*capacity)
-
-    if *codelsize > 1 {
-        image = interpreter.NewCodelImage(*codelsize, image)
-    }
 
     switch *loglevel {
     case "debug":
@@ -56,44 +50,22 @@ func main() {
         log.SetLevel(log.InfoLevel)
     }
 
-    if *mode == "interpret" {
-        pi.Execute(image)
+    if image, err := readImage(*filename); err == nil {
+
+        if *codelsize > 1 {
+            image = interpreter.NewCodelImage(*codelsize, image)
+        }
+
+        pi := interpreter.NewInterpreter(*capacity)
+        if *mode == "interpret" {
+            pi.Interpret(image)
+        } else {
+            tokens := interpreter.Tokenize(image)
+            interpreter.ParseTokens(tokens)
+            pi.InterpretTokens(tokens[0][0])
+        }
+        fmt.Println()
     } else {
-        shapes := interpreter.Tokenize(image)
-        interpreter.ParseGraph(shapes[0][0], shapes)
-
-        printed := map[*interpreter.Shape]bool{}
-        printGraph(shapes[0][0], 1, "", printed)
+        log.Errorf("Unable to decode image %s - %v", *filename, err)
     }
-    fmt.Println()
-
 }
-
-func printGraph(shape *interpreter.Shape, depth int, name string, printed map[*interpreter.Shape]bool) {
-    for i:=0; i < depth; i++ {
-        fmt.Print(" ")
-    }
-    if contains, _ := printed[shape]; contains {
-        fmt.Println("<printed>")
-        return
-    }
-
-    fmt.Print(name)
-    if shape == nil {
-        fmt.Println(" nil")
-        return
-    }
-    printed[shape] = true
-    fmt.Printf(" %s\n", shape.Color())
-    printGraph(shape.Connection(interpreter.DpRight, interpreter.CcLeft), depth + 1, "R-L", printed)
-    printGraph(shape.Connection(interpreter.DpRight, interpreter.CcRight), depth + 1, "R-R", printed)
-    printGraph(shape.Connection(interpreter.DpDown, interpreter.CcLeft), depth + 1, "D-L", printed)
-    printGraph(shape.Connection(interpreter.DpDown, interpreter.CcRight), depth + 1, "D-R", printed)
-    printGraph(shape.Connection(interpreter.DpLeft, interpreter.CcLeft), depth + 1, "L-L", printed)
-    printGraph(shape.Connection(interpreter.DpLeft, interpreter.CcRight), depth + 1, "L-R", printed)
-    printGraph(shape.Connection(interpreter.DpUp, interpreter.CcLeft), depth + 1, "U-L", printed)
-    printGraph(shape.Connection(interpreter.DpUp, interpreter.CcRight), depth + 1, "U-R", printed)
-}
-
-
-

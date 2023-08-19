@@ -7,24 +7,17 @@ import (
 
 func TestCommand(t *testing.T) {
 
-    pi := NewStackMachine(32)
-
-    cmd := pi.diff(l_red, n_red)
+    cmd := asPColor(l_red).Diff(asPColor(n_red))
     if cmd != Operand(1) {
         t.Errorf("Expected %d got %d", 2, cmd)
     }
 
-    cmd = pi.diff(l_red, d_red)
+    cmd = asPColor(l_red).Diff(asPColor(d_red))
     if cmd != Operand(2) {
         t.Errorf("Expected %d got %d", 2, cmd)
     }
 
-    cmd = pi.diff(l_red, d_red)
-    if cmd != Operand(2) {
-        t.Errorf("Expected %d got %d", 2, cmd)
-    }
-
-    cmd = pi.diff(d_red, l_red)
+    cmd = asPColor(d_red).Diff(asPColor(l_red))
     if cmd != Operand(1) {
         t.Errorf("Expected %d got %d", 1, cmd)
     }
@@ -35,7 +28,7 @@ func TestCommand(t *testing.T) {
 func TestPushAndPop(t *testing.T) {
     values := []int32 {1, 2, 3} 
 
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
 
     pi.exec(Pop)
 
@@ -59,7 +52,7 @@ func TestAdd(t *testing.T) {
     first, second := int32(5), int32(10)
     expected := first + second
 
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push, 649201337)
     pi.exec(Push, second)
     pi.exec(Push, first)
@@ -80,7 +73,7 @@ func TestSub(t *testing.T) {
     first, second := int32(7), int32(3)
     expected := second - first
 
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push, 649201337)
     pi.exec(Push,second)
     pi.exec(Push,first)
@@ -101,7 +94,7 @@ func TestMult(t *testing.T) {
     first, second := int32(7), int32(3)
     expected := second * first
 
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push,649201337)
     pi.exec(Push,second)
     pi.exec(Push,first)
@@ -124,7 +117,7 @@ func TestDiv(t *testing.T) {
     first, second := int32(7), int32(3)
     expected := second / first
 
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push,649201337)
     pi.exec(Push,second)
     pi.exec(Push,first)
@@ -147,7 +140,7 @@ func TestMod(t *testing.T) {
     first, second := int32(7), int32(3)
     expected := second % first
 
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push,649201337)
     pi.exec(Push,second)
     pi.exec(Push,first)
@@ -165,7 +158,7 @@ func TestMod(t *testing.T) {
 }
 
 func TestNot(t *testing.T) {
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push,649201337)
     pi.exec(Push,0)
     pi.exec(Not)
@@ -187,7 +180,7 @@ func TestNot(t *testing.T) {
 }
 
 func TestGreater_True(t *testing.T) {
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push,649201337)
     pi.exec(Push,0)
     pi.exec(Greater)
@@ -201,7 +194,7 @@ func TestGreater_True(t *testing.T) {
 
 
 func TestGreater_False(t *testing.T) {
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push,649201337)
     pi.exec(Push,0)
     pi.exec(Greater)
@@ -223,7 +216,7 @@ func TestGreater_False(t *testing.T) {
 }
 
 func TestDuplicate(t *testing.T) {
-    pi := NewStackMachine(32)
+    pi := NewInterpreter(32)
     pi.exec(Push, 649201337)
     pi.exec(Push, 3)
     pi.exec(Dup)
