@@ -52,6 +52,7 @@ const (
     CharOut Operand = 17
     Break Operand = 18
     Noop Operand = 19
+    Exit Operand = 20
 )
 
 type DpDir byte 
@@ -367,6 +368,8 @@ func (o Operand) String() string {
         return "out"
     case Noop:
         return "nop"
+    case Exit:
+        return "exit"
     }
     return "unknown"
 }

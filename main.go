@@ -7,7 +7,10 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"os"
+
+	"github.com/jasonhightower/jcr"
 	log "github.com/sirupsen/logrus"
 	"jasonhightower.com/piet/interpreter"
 )
@@ -37,7 +40,13 @@ func main() {
     capacity := flag.Int("capacity", 512, "Capacity of the stack")
     mode := flag.String("m", "interpret", "Name of the mode to run")
     loglevel := flag.String("log", "info", "Log Level")
+    help := flag.Bool("h", false, "Print Help/Usage")
     flag.Parse()
+
+    if *help {
+        flag.Usage()
+        os.Exit(0)
+    }
 
     switch *loglevel {
     case "debug":
@@ -59,6 +68,24 @@ func main() {
         pi := interpreter.NewInterpreter(*capacity)
         if *mode == "interpret" {
             pi.Interpret(image)
+        } else if *mode == "parse" {
+            tokens := interpreter.Tokenize(image)
+            p := interpreter.NewParser(tokens, image.Bounds())
+            operations := p.Parse()
+            for _, op := range *operations {
+                fmt.Printf("%s - %d\n", op.Op, op.Val)   
+            }
+
+            class := BuildClass("TestClass")
+            
+            writer := jcr.KrakatauWriter{}
+            writerp := jcr.JavapWriter{}
+
+            var w io.Writer = os.Stdout
+            writer.Write(&w, class)
+
+            writerp.Write(&w, class)
+
         } else {
             tokens := interpreter.Tokenize(image)
             interpreter.ParseTokens(tokens)
